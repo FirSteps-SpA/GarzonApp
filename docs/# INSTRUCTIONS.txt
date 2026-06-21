@@ -1,0 +1,188 @@
+## Tareas
+
+Quiero que produzcas los siguientes entregables. No generes código todavía. Concéntrate exclusivamente en planificación, arquitectura y decisiones de diseño de sistema.
+
+---
+
+### 1. Modelo de datos completo
+
+Diseña el esquema de base de datos completo para Supabase.
+
+Para cada tabla especifica:
+* nombre y propósito
+* columnas con tipos PostgreSQL
+* constraints (PK, FK, NOT NULL, DEFAULT)
+* índices recomendados
+* Row Level Security: qué rol puede SELECT / INSERT / UPDATE / DELETE
+* relaciones con otras tablas
+
+Considera desde el inicio las necesidades de Fase 1 y las implicancias de sincronización futura.
+
+---
+
+### 2. Modelo de estado local (Zustand)
+
+Diseña los stores de Zustand necesarios para Fase 1.
+
+Para cada store especifica:
+* nombre y responsabilidad
+* estado (shape completo)
+* acciones
+* qué datos persisten en AsyncStorage y cuáles son solo en memoria
+* cómo se relaciona con Supabase en fases futuras
+
+---
+
+### 3. Sistema de autenticación y roles
+
+Diseña el flujo completo de autenticación usando Supabase Auth.
+
+Incluye:
+* flujo de login (qué ve cada rol al entrar)
+* auth guard en Expo Router
+* cómo se propagan los permisos a nivel de UI y de datos
+* diferencias de experiencia entre rol garzón y rol admin
+* consideraciones de seguridad
+
+---
+
+### 4. Arquitectura de navegación
+
+Diseña la estructura completa de navegación con Expo Router.
+
+Incluye:
+* árbol completo de rutas
+* qué rutas son públicas y cuáles protegidas
+* navegación por tabs vs stack vs modal
+* cómo se navega desde el mapa de mesas al detalle de pedido
+* cómo se navega por la carta de ítems (categorías > subcategorías > ítem)
+* flujo completo del garzón en un turno típico
+
+---
+
+### 5. Diseño del mapa de mesas
+
+Diseña la lógica y estructura de datos del mapa abstracto de mesas.
+
+Incluye:
+* cómo se representan las posiciones (coordenadas, grid, o layout declarativo)
+* separación visual zona interior / exterior
+* estados posibles de una mesa y cómo se representa cada uno visualmente
+* cómo se manejan las mesas virtuales (números altos)
+* qué datos son estáticos (positions) y cuáles son dinámicos (estado)
+* consideraciones para Realtime en fases futuras
+
+---
+
+### 6. Diseño de la carta de ítems
+
+Diseña la estructura completa de la carta navegable.
+
+Incluye:
+* jerarquía de categorías (profundidad máxima recomendada)
+* cómo se modela la disponibilidad (por ítem, por horario, por temporada)
+* cómo se agrega/quita un ítem a un pedido de mesa
+* cómo se maneja la navegación de regreso (carta > subcategoría > categoría)
+* diferencia entre vista garzón (operacional) y vista admin (edición)
+* consideraciones para carta digital de clientes en el futuro
+
+---
+
+### 7. Flujos de usuario principales
+
+Mapea los flujos completos para cada perfil.
+
+Para el **garzón**:
+* inicio de turno
+* tomar pedido de una mesa nueva
+* agregar ítems a una mesa con pedido activo
+* consultar resumen de pedido de una mesa
+* registrar pedido en el PC (flujo que la app apoya, no reemplaza)
+* fin de turno
+
+Para el **admin**:
+* gestión de carta (agregar/editar/desactivar ítem)
+* gestión de disponibilidad de ítems
+* gestión de perfiles de garzones
+
+---
+
+### 8. Estrategia de datos: estático vs dinámico vs Supabase
+
+Define qué información vive en cada capa en Fase 1, y cómo migra en fases futuras.
+
+Para cada tipo de dato indica:
+* dónde vive en Fase 1 (constante TS / Zustand / AsyncStorage / Supabase)
+* cuándo y por qué migra a Supabase
+* impacto en el código al hacer esa migración
+
+Tipos de dato a analizar:
+* posiciones del mapa de mesas
+* carta de ítems
+* disponibilidad de ítems
+* pedidos activos
+* historial de pedidos
+* usuarios / roles
+
+---
+
+### 9. Estrategia de sincronización futura
+
+Sin implementar nada todavía, diseña cómo debería funcionar la sincronización en tiempo real.
+
+Incluye:
+* qué tablas necesitan Realtime
+* qué eventos deben propagarse entre dispositivos
+* cómo manejar conflictos (dos garzones modifican la misma mesa simultáneamente)
+* cómo el modelo de datos de Fase 1 facilita o dificulta este paso
+* qué cambios de arquitectura serían necesarios al activar sincronización
+
+---
+
+### 10. Fases de implementación
+
+Divide el desarrollo en fases incrementales y entregables concretos.
+
+Para cada fase incluye:
+* objetivo
+* entregables técnicos
+* entregables funcionales (qué puede hacer el usuario al finalizar la fase)
+* criterios de éxito
+* dependencias de fases anteriores
+
+Fases sugeridas como punto de partida (ajusta si consideras necesario):
+
+#### Fase 1 — Fundación
+Proyecto base, estructura de carpetas, Expo Router, Supabase configurado, auth básica
+
+#### Fase 2 — Mapa de Mesas
+Vista de mapa con datos estáticos, estados visuales, navegación a detalle de mesa
+
+#### Fase 3 — Carta de Ítems
+Navegación por categorías, agregar/quitar ítems, resumen de pedido por mesa
+
+#### Fase 4 — Persistencia Local
+Zustand + AsyncStorage: pedidos persisten entre sesiones en el dispositivo
+
+#### Fase 5 — Backend y Auth
+Supabase Auth con roles, datos de carta y pedidos en PostgreSQL
+
+#### Fase 6 — Admin
+Panel de gestión de carta, disponibilidad, usuarios
+
+#### Fase 7 — Realtime
+Sincronización de estado de mesas y pedidos entre dispositivos
+
+#### Fase 8 — Pulido y Deploy
+EAS Build, distribución interna, onboarding de garzones
+
+---
+
+## Restricciones
+
+* No generar código todavía
+* No generar estilos ni decisiones visuales
+* No asumir reemplazo del sistema actual del restaurante
+* No asumir conectividad permanente en Fase 1
+* Concentrarse exclusivamente en planificación, arquitectura, modelo de datos y flujos
+* Todas las decisiones deben justificarse considerando tanto Fase 1 como la evolución futura del sistema

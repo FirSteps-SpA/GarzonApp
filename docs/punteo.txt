@@ -1,0 +1,67 @@
+app asistir garzones -> gestionar mesas/pedidos en restaurant
+
+# Situación Actual:
+
+## Descripción
+
+Garzones atienden mesas, se aprenden los pedidos o anotan en "personalmente" en celu ej. notas o en chat propio de WhatsApp.
+
+Para registrar el pedido -> enviar ticket a barra/cocina: deben ingresar a uno de los PCs disponibles que usa sistema típico de restaurantes:
+- ingresar su "código" de garzón (número de dos dígitos que los identifica)
+- ingresar el número de mesa, o clickearlo si es que aparece en pantalla
+- navegar el menú ingresando cada item (ej: Líquidos > Jugos > Jugo Frutilla)
+- seleccionar "Enviar"
+
+Para "cerrar" mesa:
+- ingresar código
+- ingresar mesa
+- seleccionar "Pre cuenta"
+- seleccionar "Destino" > "Bar"
+- seleccionar "Imprimir"
+- llevar pre-cuenta a la mesa, cliente hace el pago, entrega copia comprobante a cliente
+- dejar copia comprobante de tienda a jefa de local, quien maneja contabilidad y luego "cierra" oficialmente la mesa en el sistema.
+
+## Observaciones/Supuestos
+
+En períodos de alto tráfico, performance de sistema computacional actual sufre bajas importantes.
+
+Computadores que deben estar sincronizados: dos en los q garzones ingresan pedidos, uno adicional en la barra en que también se pueden ingresar. además el sistema de tickets que se envían pedido a cocina/bar deben estar actualizados, probablemente implica solo 1 PC adicional (cocina, para imprimir tickets), ya que el PC de barra debe ser el mismo que se puede usar para ingresar pedidos, solo q tiene además conexión a impresora de tickets de pedidos y de pre-cuentas. Finalmente, parece haber un computador adicional usado por la jefa, por el momento poco claro si es el mismo que usa para cerrar mesas, o si eso podría hacerse en el de la barra (donde también se encuentra la caja).
+
+La latencia por alto tráfico es entendible en sistema complejo como este, que demanda sincronización estricta para evitar duplicación/pérdida de pedidos. La latencia es esperable, particularmente al momento de enviar pedidos, sin embargo cuando el sistema se enlentece, TODO está lento, incluso navegar por el menú de artículos o cambiar de usuario (código de garzón), lo que es especialmente frustante ya que se forma un cuello de botella en el flujo del restaurante justo cuando más se necesita fluidez.
+
+N° mesas fuera del local: 1-37
+N° mesas dentro del local: 40-67
+
+Por otro lado (y admito que esto es principalmente problema para garzones nuevos), a veces puede haber confusión con los números de mesa, además de los ítems que no están disponibles, ya sea permanentemente, por temporada o por horario.
+
+A veces se pide/paga la cuenta de una mesa, se retira el cliente y llega uno nuevo a la misma mesa antes de que la jefa haya alcanzado a "cerrarla" oficialmente, entonces sigue apareciendo como vigente el pedido del cliente que ya se fue. Como parche a esta situación, se asocia el pedido a un número de mesa "virtual" grande, y se debe informar al resto de personal de qué mesa realmente se trata.
+
+
+# Propuesta
+
+## Limitaciones
+
+La exigencia de sincronización introduce complejidad al sistema inevitablemente, aunque de cualquier modo se puede mejorar la situación actual.
+
+El sistema en uso actualmente, con todos sus problemas, ya está en uso, está establecido y cualquier cambio implica desconfianza y período de adaptación.
+
+La elección del sistema actual probablemente implica un contrato indefinido. Al tratarse de una cadena, es probable que, incluso si es que estuviese de acuerdo y 100% convencido el jefe local, no se pueda cambiar el sistema tan fácilmente. También probablemente hay exigencias que no son observables a simple vista en mi experiencia limitada como garzón.
+
+## Propuesta Inicial
+
+Partir con una app complementaria al sistema actual, completamente opcional, solo enfocada en apoyar el trabajo de garzones de anotar pedidos/gestionar mesas.
+
+Idea nace porque encuentro tedioso anotar en chat de whatsapp el número de mesa + el pedido, además de memorizar todas los números de mesas. hay algunas que son "comunes"/fáciles/ intuitivas de aprender la numeración, pero hay algunas excepciones que se me olvidan/confunden más rápido. Esto sin contar cuando se usan los números altos (68, 69, 70) y no es inmediatamente claro si es una mesa que se me olvidó donde quedaba, o si es una mesa "virtual" asociada a otro número "real".
+
+UI con mapa abstracto representando posición relativa de mesas, separadas en dentro/fuera del local. presionar mesa, desplega menú de navegación de ítems similar al de uso del sistema actual (podría además incluir fotos/precios), se puede agregar/quitar items del pedido de la mesa, además de ver resumen de lo pedido hasta el momento.
+
+Eso por ahora, esta demo actualmente no necesita ningún tipo de sincronización, pero quizás vale la pena considerar desde un principio qué implicaría si es que fuese necesaria. No reemplaza ni resuelve el principal cuello de botella actual, por ahora solo asiste levemente a garzones, particularmente a novatos.
+
+## Perfiles/Permisos
+1. dev
+2. admin local (gerente/jefe garzones): editar/agregar perfiles de garzones/artículos de carta/disponibilidad artículos según temporada u horario
+3. garzones (inicialmente solo login para uso de app, ya que es complementaria para anotar pedidos, no reemplaza ingresar items en sistema con código, aunque eventualmente podría hacerlo). futuro también puede incluir cocina/barra de ser necesario.
+
+## Ideas de evolución futura
+- integración de funcionalidades/evolución hacia sistema equivalente al actualmente usado
+- aprovechar menu de navegación de ítems (disponibles) para carta digital de uso de clientes?

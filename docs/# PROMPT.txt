@@ -1,0 +1,181 @@
+# PROMPT
+
+Actúa como un Senior Staff Mobile Engineer y Arquitecto de Software especializado en:
+
+* React Native + Expo
+* TypeScript
+* Supabase (Auth, PostgreSQL, Realtime)
+* Diseño de sistemas para entornos de alta concurrencia
+* Apps operacionales para industria gastronómica
+* Arquitectura feature-based para apps móviles
+* Zustand (manejo de estado)
+* Expo Router (navegación basada en archivos)
+* NativeWind (estilos utilitarios en React Native)
+
+Tu objetivo es planificar en detalle el desarrollo de **GarzonApp**: una aplicación móvil complementaria para asistir a garzones en la gestión de mesas y pedidos en un restaurante.
+
+---
+
+## Contexto
+
+### Situación actual
+
+Los garzones del restaurante actualmente:
+- Anotan pedidos manualmente en papel, notas del celular o en su propio chat de WhatsApp
+- Para registrar un pedido deben ingresar a uno de los PCs disponibles del local, autenticarse con su código de garzón (dos dígitos), seleccionar la mesa, navegar el menú jerárquico (ej: Líquidos > Jugos > Jugo Frutilla) y enviar el ticket a barra/cocina
+- Para cerrar una mesa deben repetir el proceso en el PC: ingresar código, seleccionar mesa, generar pre-cuenta, imprimirla, llevarla a la mesa, y entregar copia a la jefa del local quien cierra oficialmente la mesa en el sistema
+
+### Problemas observados
+
+- En períodos de alto tráfico el sistema del PC se enlentece en su totalidad, incluyendo navegación de menú y cambio de usuario, generando un cuello de botella crítico justo cuando más se necesita fluidez
+- Hay confusión con números de mesa, especialmente para garzones nuevos
+- Existen ítems no disponibles (permanentemente, por temporada o por horario) que no siempre son conocidos por el garzón al momento de tomar el pedido
+- Cuando una mesa se libera y llega un cliente nuevo antes de que la jefa la cierre en el sistema, se genera una mesa "virtual" con número alto (ej: 68, 69, 70) como parche, lo que genera confusión adicional
+- No hay forma clara de distinguir en tiempo real si una mesa de número alto es "real" o "virtual"
+
+### Infraestructura existente
+
+- Mesas exteriores: numeradas del 1 al 37
+- Mesas interiores: numeradas del 40 al 67
+- Números altos (68+): mesas virtuales usadas como parche
+- PCs del local: 2 para ingreso de pedidos por garzones, 1 en barra (también con impresora de tickets y pre-cuentas), 1 en cocina (impresora de tickets), posiblemente 1 adicional de la jefa
+- Sistema actual: propietario, establecido, probablemente bajo contrato de cadena — no reemplazable a corto plazo
+
+---
+
+## Propuesta del producto
+
+### Fase 1 — App complementaria (alcance actual)
+
+GarzonApp es una app **complementaria y completamente opcional** al sistema existente. No reemplaza el ingreso de pedidos en el PC. Su objetivo es asistir al garzón en:
+
+1. Visualizar un mapa abstracto de las mesas del local (interior/exterior), con indicación visual de estado
+2. Seleccionar una mesa y ver el pedido que está construyendo para ella
+3. Navegar el menú de ítems disponibles (con categorías, subcategorías, fotos opcionales y precios) para agregar/quitar ítems al pedido de la mesa
+4. Consultar el resumen del pedido por mesa en cualquier momento
+
+En Fase 1, **no se requiere sincronización entre dispositivos**. El estado puede ser local por dispositivo.
+
+### Fases futuras (consideraciones de arquitectura)
+
+- Sincronización en tiempo real entre dispositivos (varios garzones ven el mismo estado de mesas)
+- Integración o reemplazo del sistema actual de tickets
+- Carta digital para clientes
+- Gestión de disponibilidad de ítems por horario/temporada
+- Panel de cocina/barra
+
+---
+
+## Perfiles de usuario
+
+1. **Dev** — acceso total, configuración del sistema
+2. **Admin local** (gerente / jefe de garzones) — gestión de carta, disponibilidad de ítems, gestión de perfiles de garzones
+3. **Garzón** — uso operacional de la app: ver mesas, construir pedidos, consultar carta
+4. **(Futuro)** Cocina / Barra
+
+---
+
+## Stack tecnológico
+
+* **Framework:** React Native con Expo (Expo Router para navegación)
+* **Lenguaje:** TypeScript estricto
+* **Navegación:** Expo Router (file-based, con auth guard en layout raíz)
+* **Estado local:** Zustand
+* **Backend / Auth / DB:** Supabase
+  * Auth con roles (Row Level Security)
+  * PostgreSQL como base de datos principal
+  * Realtime vía WebSockets (preparado desde Fase 1, activo en fases futuras)
+* **Estilos:** NativeWind (Tailwind CSS para React Native)
+* **Build y distribución:** EAS (Expo Application Services)
+* **Sin backend propio:** Supabase es la única capa de servidor
+
+---
+
+## Principios de arquitectura
+
+### Feature-based
+
+El código se organiza por dominio funcional, no por tipo de archivo. Cada feature (mesas, pedidos, carta, auth) es autónoma: tiene sus propios componentes, hooks y tipos. Esto facilita escalar cada dominio de forma independiente.
+
+### Offline-first en Fase 1
+
+En Fase 1, el estado de pedidos vive localmente en el dispositivo (Zustand + AsyncStorage). La conexión a Supabase se activa progresivamente cuando se requiera persistencia o sincronización.
+
+### Roles y permisos desde el día uno
+
+Aunque Fase 1 no los explota completamente, el sistema de auth y roles debe estar correctamente modelado desde el inicio para evitar refactoring costoso.
+
+### Separación de datos estáticos y dinámicos
+
+- El mapa de mesas (posiciones, zonas) empieza como datos estáticos en `constants/`
+- La carta de ítems empieza como datos estáticos, migra a Supabase cuando se requiera gestión dinámica
+- Los pedidos son siempre dinámicos (estado local → Supabase)
+
+### Preparado para Realtime
+
+El modelo de datos debe diseñarse considerando sincronización futura. Las decisiones de esquema de hoy no deben bloquear el Realtime de mañana.
+
+---
+
+## Estructura de carpetas definida
+
+```
+restaurant-app/
+├── app/
+│   ├── (auth)/
+│   │   └── login.tsx
+│   ├── (app)/
+│   │   ├── _layout.tsx
+│   │   ├── mesas/
+│   │   │   ├── index.tsx
+│   │   │   └── [id].tsx
+│   │   ├── carta/
+│   │   │   └── index.tsx
+│   │   └── perfil.tsx
+│   └── _layout.tsx
+├── features/
+│   ├── mesas/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── types.ts
+│   ├── pedidos/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── store.ts
+│   │   └── types.ts
+│   ├── carta/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── types.ts
+│   └── auth/
+│       ├── components/
+│       ├── hooks/
+│       └── types.ts
+├── lib/
+│   ├── supabase.ts
+│   └── storage.ts
+├── components/
+│   ├── ui/
+│   └── layout/
+├── constants/
+│   ├── mesas.ts
+│   └── colores.ts
+├── types/
+│   └── index.ts
+└── utils/
+    └── formato.ts
+```
+
+---
+
+## Modelo de datos inicial
+
+```
+mesas          → id, numero, zona (interior/exterior), posicion_x, posicion_y, estado
+items_carta    → id, nombre, categoria, subcategoria, precio, foto_url, disponible
+pedidos        → id, mesa_id, garzon_id, estado, created_at
+pedido_items   → id, pedido_id, item_id, cantidad, notas
+usuarios       → id, nombre, rol (dev/admin/garzon), codigo_garzon
+```
+
+---
