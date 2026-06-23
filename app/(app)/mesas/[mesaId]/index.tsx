@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native'
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router'
 import { useMesasStore } from '@/stores/useMesasStore'
 import { usePedidosStore } from '@/stores/usePedidosStore'
@@ -28,9 +28,18 @@ export default function DetalleMesaScreen() {
   const estado = getEstadoMesa(mesa.id)?.estado ?? 'libre'
   const estilo = ESTILOS_ESTADO[estado]
 
-  const handleIniciar = () => {
+  const handleIniciar = async () => {
+    // Intentamos ocupar primero (con optimistic lock). Si otro garzón la tomó,
+    // no creamos el pedido y avisamos.
+    const ok = await actualizarEstadoMesa(mesa.id, 'ocupada')
+    if (!ok) {
+      Alert.alert(
+        'Mesa ya tomada',
+        'Otro garzón ocupó esta mesa. El mapa se actualizó.'
+      )
+      return
+    }
     iniciarPedido(mesa.id, mesa.numero)
-    actualizarEstadoMesa(mesa.id, 'ocupada')
   }
 
   const irACarta = () => {

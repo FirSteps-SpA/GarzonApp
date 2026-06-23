@@ -13,6 +13,7 @@ export interface EstadoMesa {
   mesaId: string
   estado: EstadoMesaTipo
   garzonId: string | null
+  updatedAt?: string | null
 }
 
 interface MesasState {
@@ -27,7 +28,9 @@ interface MesasState {
 interface MesasActions {
   cargarMesas: () => Promise<void>
   seleccionarMesa: (mesaId: string | null) => void
-  actualizarEstadoMesa: (mesaId: string, estado: EstadoMesaTipo) => void
+  // Devuelve false si hubo conflicto (la mesa ya fue tomada por otro).
+  actualizarEstadoMesa: (mesaId: string, estado: EstadoMesaTipo) => Promise<boolean>
+  aplicarEstadoRemoto: (estado: EstadoMesa) => void
   getMesaById: (id: string) => Mesa | undefined
   getMesaByNumero: (numero: number) => Mesa | undefined
   getMesasPorZona: (zonaId: string) => Mesa[]
@@ -67,7 +70,7 @@ export const useMesasStore = create<MesasState & MesasActions>((set, get) => ({
             .from('mesas')
             .select('id, numero, zona_id, es_virtual, mesa_real_id, pos_x, pos_y, activa')
             .eq('activa', true),
-          supabase.from('estados_mesa').select('mesa_id, estado, garzon_id'),
+          supabase.from('estados_mesa').select('mesa_id, estado, garzon_id, updated_at'),
         ])
       if (ez) throw ez
       if (em) throw em
@@ -98,6 +101,7 @@ export const useMesasStore = create<MesasState & MesasActions>((set, get) => ({
           mesaId: e.mesa_id,
           estado: e.estado as EstadoMesaTipo,
           garzonId: e.garzon_id,
+          updatedAt: e.updated_at,
         }
       }
 
@@ -112,25 +116,59 @@ export const useMesasStore = create<MesasState & MesasActions>((set, get) => ({
 
   seleccionarMesa: (mesaId) => set({ mesaSeleccionada: mesaId }),
 
-  actualizarEstadoMesa: (mesaId, estado) => {
+  actualizarEstadoMesa: async (mesaId, estado) => {
+    const prev = get().estadosMesa[mesaId]
     const garzonId =
       estado === 'libre' ? null : useAuthStore.getState().usuario?.id ?? null
+    const nowIso = new Date().toISOString()
+
     // Optimista: actualizamos local primero.
     set((state) => ({
       estadosMesa: {
         ...state.estadosMesa,
-        [mesaId]: { mesaId, estado, garzonId },
+        [mesaId]: { mesaId, estado, garzonId, updatedAt: nowIso },
       },
     }))
-    // Persistimos en Supabase en background (sin bloquear la UI).
-    supabase
+
+    // Optimistic lock: ocupar una mesa solo se permite si SIGUE libre.
+    // Evita que dos garzones tomen la misma mesa a la vez.
+    const usarLock = estado === 'ocupada' && prev?.estado === 'libre'
+    let q = supabase
       .from('estados_mesa')
-      .update({ estado, garzon_id: garzonId, updated_at: new Date().toISOString() })
+      .update({ estado, garzon_id: garzonId, updated_at: nowIso })
       .eq('mesa_id', mesaId)
-      .then(({ error }) => {
-        if (error) console.warn('No se pudo actualizar estado_mesa', mesaId, error.message)
-      })
+    if (usarLock) q = q.eq('estado', 'libre')
+
+    const { data, error } = await q.select()
+    if (error) {
+      console.warn('No se pudo actualizar estado_mesa', mesaId, error.message)
+      return false
+    }
+    if (usarLock && (!data || data.length === 0)) {
+      // Conflicto: otro garzón la tomó primero. Traemos el estado real.
+      const { data: actual } = await supabase
+        .from('estados_mesa')
+        .select('mesa_id, estado, garzon_id, updated_at')
+        .eq('mesa_id', mesaId)
+        .single()
+      if (actual) {
+        get().aplicarEstadoRemoto({
+          mesaId: actual.mesa_id,
+          estado: actual.estado as EstadoMesaTipo,
+          garzonId: actual.garzon_id,
+          updatedAt: actual.updated_at,
+        })
+      }
+      return false
+    }
+    return true
   },
+
+  // Aplica un estado recibido de Realtime (o de una reconciliación).
+  aplicarEstadoRemoto: (estado) =>
+    set((state) => ({
+      estadosMesa: { ...state.estadosMesa, [estado.mesaId]: estado },
+    })),
 
   getMesaById: (id) => get().mesas.find((m) => m.id === id),
   getMesaByNumero: (numero) => get().mesas.find((m) => m.numero === numero),
@@ -142,5 +180,26 @@ export const useMesasStore = create<MesasState & MesasActions>((set, get) => ({
 
   reiniciarEstados: () => set({ estadosMesa: estadosIniciales(get().mesas) }),
 
-  suscribirRealtime: () => () => {},
+  suscribirRealtime: () => {
+    const channel = supabase
+      .channel('estados-mesa')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'estados_mesa' },
+        (payload) => {
+          const row = payload.new as Record<string, any> | null
+          if (!row?.mesa_id) return
+          get().aplicarEstadoRemoto({
+            mesaId: row.mesa_id,
+            estado: row.estado as EstadoMesaTipo,
+            garzonId: row.garzon_id,
+            updatedAt: row.updated_at,
+          })
+        }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  },
 }))

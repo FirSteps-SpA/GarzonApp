@@ -71,6 +71,8 @@ interface CartaActions {
   actualizarCategoria: (id: string, payload: CategoriaPayload) => Promise<void>
   eliminarCategoria: (id: string) => Promise<void>
   setCategoriaActiva: (id: string, activa: boolean) => Promise<void>
+  // Realtime (Fase 7): refresca la carta ante cambios del admin. Devuelve cleanup.
+  suscribirRealtime: () => () => void
   // ── Disponibilidad (Fase 6 · sub-checkpoint B) ──
   getReglasByItem: (itemId: string) => ReglaDisponibilidad[]
   getReglasByCategoria: (categoriaId: string) => ReglaDisponibilidad[]
@@ -377,6 +379,25 @@ export const useCartaStore = create<CartaState & CartaActions>()(
       .eq('id', id)
     if (error) throw error
     await get().cargarCarta(true)
+  },
+
+  suscribirRealtime: () => {
+    // Cualquier cambio en carta/categorías/reglas refetchea (con debounce simple).
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const refrescar = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => get().cargarCarta(true), 400)
+    }
+    const channel = supabase
+      .channel('carta')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items_carta' }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias_carta' }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'disponibilidad_items' }, refrescar)
+      .subscribe()
+    return () => {
+      if (timer) clearTimeout(timer)
+      supabase.removeChannel(channel)
+    }
   },
 
   getReglasByItem: (itemId) => get().reglas.filter((r) => r.itemId === itemId),
